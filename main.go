@@ -9,30 +9,45 @@ import (
 	"sync/atomic"
 
 	"github.com/EBregains/go-servers-learning/internal/database"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	dbQueries      *database.Queries
+	db             *database.Queries
+	platform       string
 }
 
 func main() {
 
-	//SetUpDatabase
+	const FILEPATH_ROOT = "."
+	const PORT = "8080"
+
+	// Get Env
+	godotenv.Load()
+
 	dbURL := os.Getenv("DB_URL")
-	db, err := sql.Open("postgres", dbURL)
+	if dbURL == "" {
+		log.Fatal("DB_URL env variable must be set")
+	}
+
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM env variable must be set")
+	}
+
+	dbConn, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		fmt.Printf("Error conecting to Postgres Database: %v", err)
 		return
 	}
-
-	const FILEPATH_ROOT = "."
-	const PORT = "8080"
+	dbQueries := database.New(dbConn)
 
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
-		dbQueries:      database.New(db),
+		db:             dbQueries,
+		platform:       platform,
 	}
 
 	mux := http.NewServeMux()
@@ -40,6 +55,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", handlerHealth)
 	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
