@@ -17,24 +17,21 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
 	platform       string
+	jwtSecret      string
 }
 
 func main() {
 
+	// Define Const
 	const FILEPATH_ROOT = "."
 	const PORT = "8080"
 
-	// Get Env
+	// Get Env Variables
 	godotenv.Load()
 
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatal("DB_URL env variable must be set")
-	}
-
-	platform := os.Getenv("PLATFORM")
-	if platform == "" {
-		log.Fatal("PLATFORM env variable must be set")
 	}
 
 	dbConn, err := sql.Open("postgres", dbURL)
@@ -44,19 +41,33 @@ func main() {
 	}
 	dbQueries := database.New(dbConn)
 
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM env variable must be set")
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET env variable must be set")
+	}
+
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
 		platform:       platform,
+		jwtSecret:      jwtSecret,
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(FILEPATH_ROOT)))))
 
 	mux.HandleFunc("GET /api/healthz", handlerHealth)
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
-	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
+	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirp)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerGetChirpByID)
 
+	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
+	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
 
