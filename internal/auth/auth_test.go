@@ -101,7 +101,7 @@ func TestValidateJWT(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotUserID, err := ValidateJWT(tt.tokenString, tt.tokenSecret)
-			if err != nil {
+			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateJWT() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
