@@ -13,6 +13,11 @@ RETURNING *;
 SELECT * FROM users
 ORDER BY created_at ASC;
 
+
+-- name: GetUserByID :many
+SELECT * FROM users
+WHERE id = $1;
+
 -- name: GetUserByEmail :one
 SELECT * FROM users
 WHERE email = $1;
@@ -21,4 +26,10 @@ WHERE email = $1;
 Update users
 Set email = $1, hashed_password = $2
 Where id = $3
+RETURNING *;
+
+-- name: UpdateUserToRed :one
+Update users
+set is_chirpy_red = true
+where id = $1
 RETURNING *;

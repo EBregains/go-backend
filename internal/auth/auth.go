@@ -100,6 +100,18 @@ func GetBearerToken(headers http.Header) (string, error) {
 	return splitAuth[1], nil
 }
 
+func GetApiKey(headers http.Header) (string, error) {
+	headerAuth := headers.Get("Authorization")
+	if headerAuth == "" {
+		return "", ErrNoAuthHeaderIncluded
+	}
+	ApiKey := strings.Split(headerAuth, " ")
+	if len(ApiKey) < 2 || ApiKey[0] != "ApiKey" {
+		return "", fmt.Errorf("malformed API KEY on headers")
+	}
+	return ApiKey[1], nil
+}
+
 // Refresh Tokens
 func MakeRefreshToken() (string, error) {
 	// Generate random number
