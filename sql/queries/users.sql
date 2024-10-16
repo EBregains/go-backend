@@ -16,3 +16,9 @@ ORDER BY created_at ASC;
 -- name: GetUserByEmail :one
 SELECT * FROM users
 WHERE email = $1;
+
+-- name: UpdateUserPassAndEmail :one
+Update users
+Set email = $1, hashed_password = $2
+Where id = $3
+RETURNING *;
