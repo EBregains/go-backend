@@ -20,6 +20,7 @@ type Chirp struct {
 	UserID    uuid.UUID `json:"user_id"`
 }
 
+// POST
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
@@ -73,6 +74,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// GET
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 
 	dbChirps, err := cfg.db.GetChirps(r.Context())
@@ -95,6 +97,7 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, chirps)
 }
 
+// GET {id}
 func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, r *http.Request) {
 	type response struct {
 		Chirp
@@ -123,7 +126,7 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, r *http.Request
 	})
 }
 
-// POST validation
+// Validation and cleaning
 func ValidateAndCleanChirp(body string) (string, error) {
 
 	const maxChirpLength = 140
