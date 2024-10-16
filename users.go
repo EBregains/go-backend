@@ -11,10 +11,11 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Email       string    `json:"email"`
+	IsChirpyRed bool      `json:"is_chirpy_red"`
 }
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -53,10 +54,11 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 
 	respondWithJSON(w, http.StatusCreated, response{
 		User: User{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-			Email:     user.Email,
+			ID:          user.ID,
+			CreatedAt:   user.CreatedAt,
+			UpdatedAt:   user.UpdatedAt,
+			Email:       user.Email,
+			IsChirpyRed: user.IsChirpyRed,
 		},
 	})
 }
@@ -108,11 +110,68 @@ func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) 
 
 	respondWithJSON(w, http.StatusOK, response{
 		User: User{
-			ID:        dbUser.ID,
-			CreatedAt: dbUser.CreatedAt,
-			UpdatedAt: dbUser.UpdatedAt,
-			Email:     dbUser.Email,
+			ID:          dbUser.ID,
+			CreatedAt:   dbUser.CreatedAt,
+			UpdatedAt:   dbUser.UpdatedAt,
+			Email:       dbUser.Email,
+			IsChirpyRed: dbUser.IsChirpyRed,
 		},
 	})
 
+}
+
+func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request) {
+	type data struct {
+		UserID string `json:"user_id"`
+	}
+	type parameters struct {
+		Event string `json:"event"`
+		Data  data   `json:"data"`
+	}
+	// get API sign from headers
+	apiKey, err := auth.GetApiKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't get Api Key", err)
+		return
+	}
+	if apiKey != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "Provided ApiKey doesn't match", err)
+	}
+
+	// decode
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error while decoding params", err)
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		w.Header().Set("Content-type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	userUUID, err := uuid.Parse(params.Data.UserID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error parsing user_id to UUID", err)
+		return
+	}
+
+	_, err = cfg.db.GetUserByID(r.Context(), userUUID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "User not found", err)
+		return
+	}
+
+	// Red is the premium plan of chirp
+	_, err = cfg.db.UpdateUserToRed(r.Context(), userUUID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "User not found", err)
+		return
+	}
+
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
 }
